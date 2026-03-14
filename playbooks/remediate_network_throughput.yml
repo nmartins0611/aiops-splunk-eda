@@ -1,0 +1,112 @@
+---
+- name: AIOps Demo - Remediate Network Throughput Anomaly (Auto-Loop)
+  hosts: itsi
+  gather_facts: false
+
+  vars:
+    splunk_base_url: "https://{{ ansible_host }}:{{ ansible_httpapi_port }}"
+    injector_rest_path: "/servicesNS/admin/search/saved/searches/Demo%3A%20Network%20Spike%20Injector"
+    service_id: "b837ff99-b368-4798-bfd0-ac8d24a12aa4"
+    kpi_id: "5ebc485242bd9694fbd7c1ba"
+    normalization_wait_minutes: 6
+    restart_delay_minutes: 3
+
+  tasks:
+    # ── Step 1: Simulate "auto-scale infrastructure" ──
+    - name: Disable Demo Network Spike Injector saved search
+      ansible.builtin.uri:
+        url: "{{ splunk_base_url }}{{ injector_rest_path }}"
+        method: POST
+        user: "{{ ansible_user }}"
+        password: "{{ ansible_httpapi_pass }}"
+        force_basic_auth: true
+        validate_certs: false
+        body_format: form-urlencoded
+        body:
+          disabled: "1"
+      delegate_to: localhost
+
+    - name: Log remediation started
+      ansible.builtin.debug:
+        msg: >
+          Spike injector disabled. Network infra auto-scaling simulated.
+          Waiting {{ normalization_wait_minutes }} min for KPI
+          'Network Throughput - Bytes In' on 'On-Prem DB' to return to Normal.
+
+    # ── Step 2: Wait for KPI to normalize ──
+    # Real baseline data (~553K-665K) takes over the 5-min KPI window
+    # after injected high values (780K+) stop arriving
+    - name: Wait for forecast to stabilize and KPI to return to Normal
+      ansible.builtin.pause:
+        minutes: "{{ normalization_wait_minutes }}"
+
+    # ── Step 3: Find active critical episodes ──
+    - name: Get active critical episodes
+      splunk.itsi.itsi_episode_details_info:
+        filter_data: '{"status": {"$nin": ["4", "5"]}, "severity": "6"}'
+        fields: "_key,title,severity,status"
+        sort_key: "mod_time"
+        sort_dir: 0
+        limit: 20
+      register: active_episodes
+
+    - name: Log found episodes
+      ansible.builtin.debug:
+        msg: "Found {{ active_episodes.episodes | length }} active critical episode(s) to close."
+
+    # ── Step 4: Add remediation comment ──
+    - name: Add remediation comment to episodes
+      splunk.itsi.itsi_add_episode_comments:
+        episode_key: "{{ item._key }}"
+        comment: "Network infra has been auto-scaled by Ansible"
+      loop: "{{ active_episodes.episodes }}"
+      loop_control:
+        label: "{{ item.title | default(item._key) }}"
+      when: active_episodes.episodes | length > 0
+
+    # ── Step 5: Close episodes ──
+    - name: Close episodes - mark resolved
+      splunk.itsi.itsi_update_episode_details:
+        episode_id: "{{ item._key }}"
+        status: "5"
+        severity: "2"
+        owner: "admin"
+        instruction: "Auto-remediated by Ansible - Network infrastructure scaled"
+      loop: "{{ active_episodes.episodes }}"
+      loop_control:
+        label: "{{ item.title | default(item._key) }}"
+      when: active_episodes.episodes | length > 0
+
+    - name: Log remediation complete
+      ansible.builtin.debug:
+        msg: >
+          Remediation complete. All episodes closed with comment
+          'Network infra has been auto-scaled by Ansible'.
+          On-Prem DB service returning to Normal (green).
+          Re-enabling spike injector in {{ restart_delay_minutes }} min.
+
+    # ── Step 6: Re-enable spike injector for next demo cycle ──
+    - name: Wait before restarting demo cycle
+      ansible.builtin.pause:
+        minutes: "{{ restart_delay_minutes }}"
+
+    - name: Re-enable Demo Network Spike Injector saved search
+      ansible.builtin.uri:
+        url: "{{ splunk_base_url }}{{ injector_rest_path }}"
+        method: POST
+        user: "{{ ansible_user }}"
+        password: "{{ ansible_httpapi_pass }}"
+        force_basic_auth: true
+        validate_certs: false
+        body_format: form-urlencoded
+        body:
+          disabled: "0"
+      delegate_to: localhost
+
+    - name: Log cycle restart
+      ansible.builtin.debug:
+        msg: >
+          Spike injector re-enabled (cron: */5 * * * *).
+          Next injection in ~5 min → KPI escalates →
+          MLTK detects anomaly → episode → Ansible fires again.
+          Demo loop continues automatically.
