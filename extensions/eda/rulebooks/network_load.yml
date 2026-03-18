@@ -10,10 +10,10 @@
         all:
           - event.sourcetype == "itsi_notable:group"
           - event.severity == "6"
-      throttle:
-        group_by_attributes:
-          - event.payload.service_title     # Corrected field name reference
-        once_within: 5 minutes
+      # throttle:
+      #   group_by_attributes:
+      #     - event.payload.service_title     # Corrected field name reference
+      #   once_within: 5 minutes
       action:
         run_workflow_template:
           name: Network Throughput Remediation
