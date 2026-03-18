@@ -11,12 +11,10 @@
       condition: event.payload.itsi_group_title is match("MLTK Alert: Network Throughput predicted to reach .* \\(threshold: 800,000\\)")
       throttle:
         group_by_attributes:
-          - event.payload.service_title     # Corrected field name reference
+          - event.payload.service_title
         once_within: 10 minutes
       action:
-        run_template:
+        run_job_template:
           name: Network Throughput Remediation
           organization: Default
           post_events: true
-
- 
