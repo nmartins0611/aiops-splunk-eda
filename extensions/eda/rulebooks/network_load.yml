@@ -6,16 +6,19 @@
         port: 5000
   rules:
     - name: Network Load issue Detected
-      condition:
-        all:
-          - event.sourcetype == "itsi_notable:group"
-          - event.severity == "6"
-      # throttle:
-      #   group_by_attributes:
-      #     - event.payload.service_title     # Corrected field name reference
-      #   once_within: 5 minutes
+      condition: event.payload.sourcetype is defined and event.payload.sourcetype == "itsi_notable:group" and event.payload.severity is defined and event.payload.severity == "6"
+      throttle:
+        group_by_attributes:
+          - event.payload.itsi_group_id
+        once_within: 10 minutes
       action:
         run_workflow_template:
           name: Network Throughput Remediation
           organization: Default
           post_events: true
+
+    - name: Catch all webhook events for debugging
+      condition: event.payload is defined
+      action:
+        debug:
+          msg: "Event keys: {{ event.payload.keys() | list }}"
