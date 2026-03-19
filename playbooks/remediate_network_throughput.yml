@@ -4,7 +4,7 @@
   gather_facts: false
 
   vars:
-    splunk_base_url: "https://{{ ansible_host }}:{{ ansible_httpapi_port }}"
+    splunk_base_url: "http://splunk-9-netrunner.demoredhat.com:8000/"
     injector_rest_path: "/servicesNS/admin/search/saved/searches/Demo%3A%20Network%20Spike%20Injector"
     service_id: "b837ff99-b368-4798-bfd0-ac8d24a12aa4"
     kpi_id: "5ebc485242bd9694fbd7c1ba"
