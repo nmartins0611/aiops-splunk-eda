@@ -12,7 +12,7 @@
           - event.payload.itsi_group_id
         once_within: 15 minutes
       action:
-        run_workflow_template:
+        run_job_template:
           name: Network Throughput Remediation
           organization: Default
           post_events: true
