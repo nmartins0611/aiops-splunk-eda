@@ -42,18 +42,26 @@
         minutes: "{{ normalization_wait_minutes }}"
 
     # ── Step 3: Find active critical episodes ──
-    - name: Get active critical episodes
+    - name: Get all critical episodes
       splunk.itsi.itsi_episode_details_info:
-        filter_data: '{"status": {"$nin": ["4", "5"]}, "severity": "6"}'
+        filter_data: '{"severity": "6"}'
         fields: "_key,title,severity,status"
         sort_key: "mod_time"
         sort_dir: 0
-        limit: 20
-      register: active_episodes
+        limit: 50
+      register: all_critical_episodes
+      retries: 3
+      delay: 10
+      until: all_critical_episodes is not failed
+
+    - name: Filter to active episodes only (exclude Acknowledged and Closed)
+      ansible.builtin.set_fact:
+        active_episodes:
+          episodes: "{{ all_critical_episodes.episodes | default([]) | rejectattr('status', 'in', ['4', '5']) | list }}"
 
     - name: Log found episodes
       ansible.builtin.debug:
-        msg: "Found {{ active_episodes.episodes | length }} active critical episode(s) to close."
+        msg: "Found {{ active_episodes.episodes | length }} active critical episode(s) to close (filtered from {{ all_critical_episodes.episodes | default([]) | length }} total critical)."
 
     # ── Step 4: Add remediation comment ──
     - name: Add remediation comment to episodes
