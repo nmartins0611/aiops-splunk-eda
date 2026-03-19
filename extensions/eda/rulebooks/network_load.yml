@@ -10,7 +10,7 @@
       throttle:
         group_by_attributes:
           - event.payload.itsi_group_id
-        once_within: 10 minutes
+        once_within: 2 minutes
       action:
         run_workflow_template:
           name: Network Throughput Remediation
