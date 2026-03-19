@@ -12,6 +12,22 @@
     restart_delay_minutes: 3
 
   tasks:
+    - name: List all saved searches to find the correct name
+      ansible.builtin.uri:
+        url: "{{ splunk_base_url }}/servicesNS/admin/search/saved/searches"
+        method: GET
+        user: "{{ ansible_user }}"
+        password: "{{ ansible_httpapi_pass }}"
+        force_basic_auth: true
+        validate_certs: false
+        return_content: true
+      delegate_to: localhost
+      register: saved_searches_list
+
+    - name: Display saved searches
+      ansible.builtin.debug:
+        var: saved_searches_list.content
+
     # ── Step 1: Simulate "auto-scale infrastructure" ──
     - name: Disable Demo Network Spike Injector saved search
       ansible.builtin.uri:
