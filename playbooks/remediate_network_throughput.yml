@@ -24,6 +24,7 @@
         body_format: form-urlencoded
         body:
           disabled: "1"
+        status_code: [200, 303]
       delegate_to: localhost
 
     - name: Log remediation started
@@ -101,6 +102,7 @@
         body_format: form-urlencoded
         body:
           disabled: "0"
+        status_code: [200, 303]
       delegate_to: localhost
 
     - name: Log cycle restart
