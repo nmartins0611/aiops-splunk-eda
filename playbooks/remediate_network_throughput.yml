@@ -49,36 +49,34 @@
       ansible.builtin.pause:
         minutes: "{{ normalization_wait_minutes }}"
 
-    # ── Step 3: Find and close active critical episodes ──
+    # ── Step 3: Find and close the triggering episode ──
     - name: Remediate ITSI episodes
       block:
-        - name: Get all critical episodes
+        - name: Set episode group ID from event payload
+          ansible.builtin.set_fact:
+            target_group_id: "{{ splunk_event.itsi_group_id }}"
+
+        - name: Get the triggering episode
           splunk.itsi.itsi_episode_details_info:
-            filter_data: '{"severity": "6"}'
+            filter_data: '{"_key": "{{ target_group_id }}"}'
             fields: "_key,title,severity,status"
-            sort_key: "mod_time"
-            sort_dir: 0
-            limit: 50
-          register: all_critical_episodes
+            limit: 1
+          register: target_episode_result
           retries: 3
           delay: 10
-          until: all_critical_episodes is not failed
-        
-        - name: show details
-          debug:
-            msg: "{{ all_critical_episodes }}"
+          until: target_episode_result is not failed
 
-        - name: Filter to active episodes only (exclude Resolved and Closed)
+        - name: Filter out already-closed episodes (status 5)
           ansible.builtin.set_fact:
             active_episodes: >-
-              {{ all_critical_episodes.episodes | default([])
-                 | rejectattr('status', 'in', ['4', '5']) | list }}
+              {{ target_episode_result.episodes | default([])
+                 | rejectattr('status', 'in', ['5']) | list }}
 
         - name: Log found episodes
           ansible.builtin.debug:
             msg: >-
-              Found {{ active_episodes | length }} active critical episode(s)
-              (filtered from {{ all_critical_episodes.episodes | default([]) | length }} total).
+              Episode {{ target_group_id }}: found {{ target_episode_result.episodes | default([]) | length }} result(s),
+              {{ active_episodes | length }} eligible for remediation.
 
         - name: Add remediation comment to episodes
           splunk.itsi.itsi_add_episode_comments:
