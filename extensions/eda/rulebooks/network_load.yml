@@ -16,8 +16,6 @@
           name: Network loadbalance
           organization: Default
           post_events: true
-          extra_vars:
-            splunk_event: "{{ event.payload }}"
 
     - name: Catch all webhook events for debugging
       condition: event.payload is defined
