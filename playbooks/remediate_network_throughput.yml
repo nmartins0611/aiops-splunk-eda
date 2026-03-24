@@ -63,6 +63,10 @@
           retries: 3
           delay: 10
           until: all_critical_episodes is not failed
+        
+        - name: show details
+          debug:
+            msg: "{{ all_critical_episodes }}"
 
         - name: Filter to active episodes only (exclude Resolved and Closed)
           ansible.builtin.set_fact:
