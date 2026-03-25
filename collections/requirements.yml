@@ -1,0 +1,4 @@
+---
+collections:
+  - name: splunk.itsi
+  - name: ansible.eda
