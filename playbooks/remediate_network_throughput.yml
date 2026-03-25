@@ -8,6 +8,7 @@
     injector_rest_path: "/servicesNS/admin/search/saved/searches/Demo%3A%20Network%20Spike%20Injector"
     service_id: "b837ff99-b368-4798-bfd0-ac8d24a12aa4"
     kpi_id: "5ebc485242bd9694fbd7c1ba"
+    episode_id: "{{ ansible_eda.event.payload.itsi_group_id }}"
     normalization_wait_minutes: 2
     restart_delay_minutes: 1
 
@@ -38,60 +39,29 @@
       ansible.builtin.pause:
         minutes: "{{ normalization_wait_minutes }}"
 
-    # ── Step 3: Find active critical episodes ──
-    - name: Get critical episodes
-      splunk.itsi.itsi_episode_details_info:
-        filter_data: '{"severity": "6"}'
-        fields: "_key,title,severity,status"
-        sort_key: "mod_time"
-        sort_dir: 0
-        limit: 20
-      register: critical_episodes
-
-    - name: Filter out already-closed episodes
-      ansible.builtin.set_fact:
-        active_episodes: >-
-          {{ critical_episodes.episodes | default([])
-             | rejectattr('status', 'equalto', '5') | list }}
-
-    - name: Log found episodes
-      ansible.builtin.debug:
-        msg: >-
-          Found {{ active_episodes | length }} active critical episode(s)
-          (filtered from {{ critical_episodes.episodes | default([]) | length }} total).
-
-    # ── Step 4: Add remediation comment ──
-    - name: Add remediation comment to episodes
+    # ── Step 3: Update episode with remediation comment ──
+    - name: Add remediation comment to episode
       splunk.itsi.itsi_add_episode_comments:
-        episode_key: "{{ item._key }}"
-        comment: "Network infra has been auto-scaled by Ansible"
-      loop: "{{ active_episodes }}"
-      loop_control:
-        label: "{{ item.title | default(item._key) }}"
-      when: active_episodes | length > 0
+        episode_key: "{{ episode_id }}"
+        comment: "Auto-remediated by Ansible - Network infrastructure scaled"
 
-    # ── Step 5: Close episodes ──
-    - name: Close episodes - mark resolved
+    # ── Step 4: Close the episode ──
+    - name: Close episode - mark resolved
       splunk.itsi.itsi_update_episode_details:
-        episode_id: "{{ item._key }}"
+        episode_id: "{{ episode_id }}"
         status: "5"
         severity: "2"
         owner: "admin"
         instruction: "Auto-remediated by Ansible - Network infrastructure scaled"
-      loop: "{{ active_episodes }}"
-      loop_control:
-        label: "{{ item.title | default(item._key) }}"
-      when: active_episodes | length > 0
 
     - name: Log remediation complete
       ansible.builtin.debug:
         msg: >
-          Remediation complete. All episodes closed with comment
-          'Network infra has been auto-scaled by Ansible'.
-          On-Prem DB service returning to Normal (green).
+          Remediation complete. Episode {{ episode_id }} closed.
+          Auto-remediated by Ansible - Network infrastructure scaled.
           Re-enabling spike injector in {{ restart_delay_minutes }} min.
 
-    # ── Step 6: Re-enable spike injector for next demo cycle ──
+    # ── Step 5: Re-enable spike injector for next demo cycle ──
     - name: Wait before restarting demo cycle
       ansible.builtin.pause:
         minutes: "{{ restart_delay_minutes }}"
