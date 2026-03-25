@@ -8,8 +8,8 @@
     injector_rest_path: "/servicesNS/admin/search/saved/searches/Demo%3A%20Network%20Spike%20Injector"
     service_id: "b837ff99-b368-4798-bfd0-ac8d24a12aa4"
     kpi_id: "5ebc485242bd9694fbd7c1ba"
-    normalization_wait_minutes: 2
-    restart_delay_minutes: 1
+    normalization_wait_minutes: 6
+    restart_delay_minutes: 3
 
   tasks:
     # ── Step 1: Simulate "auto-scale infrastructure" ──
@@ -48,11 +48,11 @@
         limit: 20
       register: critical_episodes
 
-    - name: Filter out Resolved and Closed episodes
+    - name: Filter out already-closed episodes
       ansible.builtin.set_fact:
         active_episodes: >-
           {{ critical_episodes.episodes | default([])
-             | rejectattr('status', 'in', ['4', '5']) | list }}
+             | rejectattr('status', 'equalto', '5') | list }}
 
     - name: Log found episodes
       ansible.builtin.debug:
